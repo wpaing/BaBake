@@ -1,0 +1,7 @@
+{
+  "name": "Ba Bake - Fashion Designer Pro",
+  "description": "A comprehensive business management tool for fashion designers like Htet Htet Mu to manage finances, client measurements, and orders.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
