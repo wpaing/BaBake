@@ -75,16 +75,39 @@ class DbService {
 
   getProfile() {
     const data = localStorage.getItem(`${STORAGE_PREFIX}profile_info`);
-    if (!data) return { name: 'Htet Htet Mu', address: 'Yangon, Myanmar' };
+    if (!data) return { name: 'Htet Htet Mu', address: 'Yangon, Myanmar', avatar_url: '' };
     try {
       return JSON.parse(this.decrypt(data));
     } catch (e) {
-      return { name: 'Htet Htet Mu', address: 'Yangon, Myanmar' };
+      return { name: 'Htet Htet Mu', address: 'Yangon, Myanmar', avatar_url: '' };
     }
   }
 
-  setProfile(profile: { name: string; address: string }) {
+  setProfile(profile: { name: string; address: string; avatar_url?: string }) {
     localStorage.setItem(`${STORAGE_PREFIX}profile_info`, this.encrypt(JSON.stringify(profile)));
+  }
+
+  async uploadAvatar(file: File): Promise<string | null> {
+    try {
+      const fileName = `avatar-${Date.now()}-${file.name}`;
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file);
+
+      if (error) {
+        console.error('Avatar upload error:', error);
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (e) {
+      console.error('Avatar upload exception:', e);
+      return null;
+    }
   }
 
   async getUserId(): Promise<string> {
@@ -207,6 +230,7 @@ class DbService {
       created_at: new Date().toISOString(),
       payments,
       paid_amount: paidAmount,
+      status_history: [{ status: o.status, date: new Date().toISOString(), note: 'Order Created' }],
       user_id: await this.getUserId()
     } as Order; // Cast needed because user_id might be missing in Order type definition if not updated? 
     // Wait, Order interface in types.ts DOES NOT have user_id! I need to check types.ts.
@@ -252,8 +276,14 @@ class DbService {
     this.setStore('orders', updated);
   }
 
-  async updateOrderStatus(orderId: string, status: Order['status']): Promise<void> {
-    return this.updateOrder(orderId, { status });
+  async updateOrderStatus(orderId: string, status: Order['status'], note?: string): Promise<void> {
+    const all = await this.getOrders();
+    const order = all.find(o => o.id === orderId);
+    if (order) {
+      const history = order.status_history || [];
+      const newHistory = [...history, { status, date: new Date().toISOString(), note: note || `Status changed to ${status}` }];
+      return this.updateOrder(orderId, { status, status_history: newHistory });
+    }
   }
 
   async getNotes(): Promise<Note[]> {

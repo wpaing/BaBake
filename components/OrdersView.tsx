@@ -141,15 +141,37 @@ const OrdersView: React.FC<OrdersViewProps> = ({ openTrigger, lang, currency, ta
     return { isUrgent: diffDays <= 3, isOverdue: diffDays < 0, daysLeft: diffDays, label };
   };
 
+  const getStepProgress = (status: Order['status']) => {
+    switch (status) {
+      case 'pending': return 10;
+      case 'in_progress': return 40;
+      case 'ready_for_fitting': return 70;
+      case 'completed': return 90;
+      case 'delivered': return 100;
+      default: return 0;
+    }
+  };
+
+  const getStatusColorSolid = (status: Order['status']) => {
+    switch (status) {
+      case 'pending': return 'bg-amber-500';
+      case 'in_progress': return 'bg-blue-500';
+      case 'ready_for_fitting': return 'bg-purple-500';
+      case 'completed': return 'bg-emerald-500';
+      case 'delivered': return 'bg-slate-800';
+      default: return 'bg-slate-300';
+    }
+  };
+
   const handleUpdateStatus = async (orderId: string, newStatus: Order['status']) => {
     await dbService.updateOrderStatus(orderId, newStatus);
     loadData();
   };
 
-  const handleDownloadInvoice = (order: Order) => {
+  const handleDownloadInvoice = async (order: Order) => {
     const client = getClient(order.client_id);
     if (client) {
-      generateInvoicePDF(client, order, undefined, currency);
+      await generateInvoicePDF(client, order, undefined, currency);
     }
   };
 
@@ -351,6 +373,14 @@ const OrdersView: React.FC<OrdersViewProps> = ({ openTrigger, lang, currency, ta
                       <option value="completed">Finished</option>
                       <option value="delivered">Delivered</option>
                     </select>
+                  </div>
+
+                  {/* Status Progress Bar */}
+                  <div className="w-full bg-slate-100 h-1.5 rounded-full mb-4 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-1000 ease-out ${getStatusColorSolid(order.status)}`}
+                      style={{ width: `${getStepProgress(order.status)}%` }}
+                    />
                   </div>
 
                   <p className="text-xs text-slate-600 font-medium mb-4 bg-slate-50/50 p-3 rounded-xl italic">
@@ -632,29 +662,56 @@ const OrdersView: React.FC<OrdersViewProps> = ({ openTrigger, lang, currency, ta
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full max-w-md rounded-t-[40px] sm:rounded-[32px] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-slate-800">Payment History</h2>
+              <h2 className="text-2xl font-bold text-slate-800">Order History</h2>
               <button onClick={() => setIsHistoryModalOpen(false)} className="bg-slate-50 text-slate-400 p-2.5 rounded-2xl"><X size={20} /></button>
             </div>
 
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto no-scrollbar pr-1">
-              {(!editingOrder.payments || editingOrder.payments.length === 0) ? (
-                <div className="text-center py-10 text-slate-400">No payment records found.</div>
-              ) : (
-                editingOrder.payments.map((p, idx) => (
-                  <div key={p.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl relative">
-                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-emerald-500 shadow-sm">
-                      <CheckCircle size={20} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-black text-slate-800">{p.amount.toLocaleString()} {currency.symbol}</span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">{p.date}</span>
+            <div className="space-y-6 max-h-[60vh] overflow-y-auto no-scrollbar pr-1">
+
+              {/* Status Timeline */}
+              <div>
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Status Timeline</h4>
+                <div className="space-y-4 relative pl-2">
+                  <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100"></div>
+                  {(!editingOrder.status_history || editingOrder.status_history.length === 0) ? (
+                    <div className="text-sm text-slate-400 italic pl-6">No status updates recorded.</div>
+                  ) : (
+                    editingOrder.status_history.slice().reverse().map((h, idx) => (
+                      <div key={idx} className="relative flex items-start gap-4">
+                        <div className={`w-5 h-5 rounded-full border-2 border-white shadow-sm z-10 shrink-0 ${getStatusColorSolid(h.status as any)}`}></div>
+                        <div>
+                          <div className="text-sm font-bold text-slate-800 capitalize">{h.status.replace(/_/g, ' ')}</div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase">{new Date(h.date).toLocaleString()}</div>
+                          {h.note && <div className="text-xs text-slate-500 mt-1 bg-slate-50 p-2 rounded-lg">{h.note}</div>}
+                        </div>
                       </div>
-                      <div className="text-[10px] text-slate-500 font-medium mt-0.5">{p.note || 'Payment Record'}</div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Payments */}
+              <div>
+                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Payment Records</h4>
+                {(!editingOrder.payments || editingOrder.payments.length === 0) ? (
+                  <div className="text-center py-10 text-slate-400">No payment records found.</div>
+                ) : (
+                  editingOrder.payments.map((p, idx) => (
+                    <div key={p.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl relative">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-emerald-500 shadow-sm">
+                        <CheckCircle size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between">
+                          <span className="text-sm font-black text-slate-800">{p.amount.toLocaleString()} {currency.symbol}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">{p.date}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-medium mt-0.5">{p.note || 'Payment Record'}</div>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>

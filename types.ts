@@ -77,6 +77,7 @@ export interface Order {
   total_amount: number;
   paid_amount: number;
   payments: PaymentRecord[];
+  status_history?: { status: string; date: string; note?: string }[];
   created_at: string;
   user_id: string;
 }

@@ -4,13 +4,13 @@ import { dbService } from '../services/dbService';
 import { supabase } from '../lib/supabase';
 import { translations, Language } from '../translations';
 import { Currency, CURRENCIES } from '../types';
-import { 
-  User, 
-  Settings, 
-  Database, 
-  Languages, 
-  LogOut, 
-  ChevronRight, 
+import {
+  User,
+  Settings,
+  Database,
+  Languages,
+  LogOut,
+  ChevronRight,
   Briefcase,
   ExternalLink,
   ShieldCheck,
@@ -39,7 +39,8 @@ import {
   Unlock,
   Key,
   Edit2,
-  MapPin
+  MapPin,
+  Camera
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -61,14 +62,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [cloudMetadata, setCloudMetadata] = useState<any>(null);
   const [showRestoreCheck, setShowRestoreCheck] = useState(false);
-  
-  const [profile, setProfile] = useState({ name: '', address: '' });
+
+  const [profile, setProfile] = useState({ name: '', address: '', avatar_url: '' });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editProfileForm, setEditProfileForm] = useState({ name: '', address: '' });
-  
+  const [editProfileForm, setEditProfileForm] = useState({ name: '', address: '', avatar_url: '' });
+
   const [pinForm, setPinForm] = useState('');
   const [confirmPinForm, setConfirmPinForm] = useState('');
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const t = translations[lang];
 
@@ -107,6 +108,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
     setTimeout(() => setFeedback(null), 3000);
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const url = await dbService.uploadAvatar(file);
+    if (url) {
+      setEditProfileForm(prev => ({ ...prev, avatar_url: url }));
+    } else {
+      setFeedback({ type: 'error', message: 'Failed to upload image' });
+      setTimeout(() => setFeedback(null), 3000);
+    }
+  };
+
   const handleToggleAutoSync = () => {
     const newVal = !isAutoSync;
     setIsAutoSync(newVal);
@@ -118,12 +132,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
     setIsSyncing(true);
     const result = await dbService.pushToCloud();
     setIsSyncing(false);
-    
-    setFeedback({ 
-      type: result.success ? 'success' : 'error', 
-      message: result.message 
+
+    setFeedback({
+      type: result.success ? 'success' : 'error',
+      message: result.message
     });
-    
+
     if (result.success) loadSyncInfo();
     setTimeout(() => setFeedback(null), 3000);
   };
@@ -142,9 +156,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
     const result = await dbService.pullFromCloud();
     setIsSyncing(false);
 
-    setFeedback({ 
-      type: result.success ? 'success' : 'error', 
-      message: result.message 
+    setFeedback({
+      type: result.success ? 'success' : 'error',
+      message: result.message
     });
 
     if (result.success) loadStats();
@@ -234,21 +248,21 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
     {
       title: t.businessSettings,
       items: [
-        { 
-          icon: User, 
-          label: "Profile Details", 
-          value: "Edit Name/Address", 
-          onClick: () => setIsEditingProfile(true) 
+        {
+          icon: User,
+          label: "Profile Details",
+          value: "Edit Name/Address",
+          onClick: () => setIsEditingProfile(true)
         },
-        { 
-          icon: CreditCard, 
-          label: "Currency Settings", 
+        {
+          icon: CreditCard,
+          label: "Currency Settings",
           value: `${currency.code} (${currency.symbol})`,
           onClick: () => setIsCurrencyModalOpen(true)
         },
-        { 
-          icon: ShieldCheck, 
-          label: t.security, 
+        {
+          icon: ShieldCheck,
+          label: t.security,
           value: dbService.hasPin() ? t.activePin : t.noPin,
           onClick: () => setActivePanel('security')
         },
@@ -257,15 +271,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
     {
       title: t.appPreferences,
       items: [
-        { 
-          icon: Languages, 
-          label: t.language, 
+        {
+          icon: Languages,
+          label: t.language,
           value: lang === 'EN' ? "English" : "မြန်မာ (Myanmar)",
           onClick: () => onLangChange(lang === 'EN' ? 'MM' : 'EN')
         },
-        { 
-          icon: Database, 
-          label: "Data & Backup", 
+        {
+          icon: Database,
+          label: "Data & Backup",
           value: "Manage Storage",
           onClick: () => setActivePanel('data')
         },
@@ -284,7 +298,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
     return (
       <div className="space-y-6 pb-4 animate-in slide-in-from-right duration-300">
         <div className="flex items-center gap-4 pt-4 px-1">
-          <button 
+          <button
             onClick={() => { setActivePanel('main'); setPinForm(''); setConfirmPinForm(''); }}
             className="p-2 bg-white text-slate-400 rounded-xl hover:text-purple-600 shadow-sm border border-slate-50"
           >
@@ -310,7 +324,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t.enterPin}</label>
-                <input 
+                <input
                   type="password"
                   maxLength={4}
                   pattern="\d*"
@@ -326,7 +340,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
               {dbService.hasPin() && (
                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Confirm New PIN</label>
-                  <input 
+                  <input
                     type="password"
                     maxLength={4}
                     pattern="\d*"
@@ -342,7 +356,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
             </div>
 
             <div className="space-y-3 pt-2">
-              <button 
+              <button
                 type="submit"
                 disabled={pinForm.length !== 4 || (dbService.hasPin() && confirmPinForm.length !== 4)}
                 className="w-full py-5 bg-purple-600 text-white rounded-[24px] font-bold shadow-xl shadow-purple-100 active:scale-95 transition-all disabled:opacity-40"
@@ -352,15 +366,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
 
               {dbService.hasPin() && (
                 <div className="flex gap-3">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={onLock}
                     className="flex-1 py-4 bg-slate-900 text-white rounded-[20px] font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
                     <Lock size={14} /> {t.lockNow}
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={handleRemovePin}
                     className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-[20px] font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
@@ -379,7 +393,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
     return (
       <div className="space-y-6 pb-4 animate-in slide-in-from-right duration-300">
         <div className="flex items-center gap-4 pt-4 px-1">
-          <button 
+          <button
             onClick={() => setActivePanel('main')}
             className="p-2 bg-white text-slate-400 rounded-xl hover:text-purple-600 shadow-sm border border-slate-50"
           >
@@ -389,9 +403,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
         </div>
 
         {feedback && (
-          <div className={`p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 ${
-            feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
-          }`}>
+          <div className={`p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 ${feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
+            }`}>
             {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
             <span className="text-xs font-bold">{feedback.message}</span>
           </div>
@@ -411,7 +424,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
                 </div>
               </div>
             </div>
-            <button 
+            <button
               onClick={handleCloudBackup}
               disabled={isSyncing}
               className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100 active:scale-95 transition-all disabled:opacity-50"
@@ -426,15 +439,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
                 <RefreshCcw size={14} className="text-indigo-400" />
                 <span className="text-xs font-bold text-slate-600">Auto-sync on change</span>
               </div>
-              <button 
+              <button
                 onClick={handleToggleAutoSync}
                 className={`transition-colors ${isAutoSync ? 'text-indigo-600' : 'text-slate-300'}`}
               >
                 {isAutoSync ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
               </button>
             </div>
-            
-            <button 
+
+            <button
               onClick={initiateRestore}
               className="w-full py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold text-sm hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
             >
@@ -450,11 +463,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
     <div className="space-y-6 pb-4 relative">
       <div className="flex flex-col items-center pt-4 pb-2 relative">
         <div className="relative group">
-          <div className="w-24 h-24 bg-purple-600 rounded-[32px] flex items-center justify-center text-white font-bold text-4xl shadow-xl shadow-purple-100 mb-4 border-4 border-white">
-            {profile.name.charAt(0)}
+          <div className="w-24 h-24 bg-purple-600 rounded-[32px] flex items-center justify-center text-white font-bold text-4xl shadow-xl shadow-purple-100 mb-4 border-4 border-white overflow-hidden">
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt={profile.name} className="w-full h-full object-cover" />
+            ) : (
+              profile.name.charAt(0)
+            )}
           </div>
           <div className="absolute -bottom-1 -right-1 bg-emerald-500 w-6 h-6 rounded-full border-4 border-slate-50"></div>
-          <button 
+          <button
             onClick={() => setIsEditingProfile(true)}
             className="absolute -top-1 -right-1 bg-white p-2 rounded-xl shadow-md border border-slate-50 text-slate-400 hover:text-purple-600 transition-colors"
           >
@@ -468,13 +485,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
       </div>
 
       {feedback && (
-          <div className={`mx-1 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 ${
-            feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
+        <div className={`mx-1 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 ${feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'
           }`}>
-            {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-            <span className="text-xs font-bold">{feedback.message}</span>
-          </div>
-        )}
+          {feedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          <span className="text-xs font-bold">{feedback.message}</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm text-center">
@@ -500,9 +516,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
                 <button
                   key={i}
                   onClick={item.onClick}
-                  className={`w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors ${
-                    i !== group.items.length - 1 ? 'border-b border-slate-50' : ''
-                  }`}
+                  className={`w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors ${i !== group.items.length - 1 ? 'border-b border-slate-50' : ''
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-slate-50 rounded-xl text-slate-500">
@@ -521,7 +536,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
         ))}
       </div>
 
-      <button 
+      <button
         onClick={handleSignOut}
         className="w-full py-4 bg-rose-50 text-rose-600 rounded-3xl font-bold flex items-center justify-center gap-2 hover:bg-rose-100 transition-colors mt-4 active:scale-95"
       >
@@ -537,14 +552,30 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
               <h2 className="text-2xl font-bold text-slate-800">Edit Designer Profile</h2>
               <button onClick={() => setIsEditingProfile(false)} className="bg-slate-50 text-slate-400 p-2.5 rounded-2xl"><X size={20} /></button>
             </div>
-            
+
             <form onSubmit={handleUpdateProfile} className="space-y-6">
+              <div className="flex justify-center mb-4">
+                <div className="relative group">
+                  <div className="w-24 h-24 bg-purple-50 rounded-[32px] overflow-hidden border-2 border-dashed border-purple-200 flex items-center justify-center">
+                    {editProfileForm.avatar_url ? (
+                      <img src={editProfileForm.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <Camera size={32} className="text-purple-300" />
+                    )}
+                  </div>
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-[32px]">
+                    <Upload size={24} className="text-white" />
+                    <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                  </label>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Designer Name</label>
-                <input 
-                  type="text" 
-                  value={editProfileForm.name} 
-                  onChange={(e) => setEditProfileForm({ ...editProfileForm, name: e.target.value })} 
+                <input
+                  type="text"
+                  value={editProfileForm.name}
+                  onChange={(e) => setEditProfileForm({ ...editProfileForm, name: e.target.value })}
                   className="w-full bg-slate-50 border-0 rounded-2xl p-4 font-bold outline-none"
                   placeholder="Htet Htet Mu"
                   required
@@ -553,16 +584,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({ lang, onLangChange, currency,
 
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Studio Address</label>
-                <textarea 
-                  value={editProfileForm.address} 
-                  onChange={(e) => setEditProfileForm({ ...editProfileForm, address: e.target.value })} 
+                <textarea
+                  value={editProfileForm.address}
+                  onChange={(e) => setEditProfileForm({ ...editProfileForm, address: e.target.value })}
                   className="w-full bg-slate-50 border-0 rounded-2xl p-4 h-24 font-medium outline-none resize-none"
                   placeholder="Yangon, Myanmar"
                   required
                 />
               </div>
 
-              <button 
+              <button
                 type="submit"
                 className="w-full py-4.5 bg-purple-600 text-white rounded-[24px] font-bold shadow-xl shadow-purple-100 flex items-center justify-center gap-2 active:scale-95 transition-all"
               >
